@@ -160,6 +160,113 @@ namespace RobotCleaner
         }
     }
 
+    public class PerimeterHuggerStrategy : IStrategy
+    {
+        public void Clean(Robot robot)
+        {
+            while (robot.Move(robot.X + 1, robot.Y))
+            {
+                robot.CleanCurrentSpot();
+            }
+            while (robot.Move(robot.X, robot.Y + 1))
+            {
+                robot.CleanCurrentSpot();
+            }
+            while (robot.Move(robot.X - 1, robot.Y))
+            {
+                robot.CleanCurrentSpot();
+            }
+            while (robot.Move(robot.X, robot.Y - 1))
+            {
+                robot.CleanCurrentSpot();
+            }
+        }
+    }
+
+    public class SpiralStrategy : IStrategy
+    {
+        public void Clean(Robot robot)
+        {
+            int startX = robot.Map.Width / 2;
+            int startY = robot.Map.Height / 2;
+            robot.Move(startX, startY);
+
+
+            int[,] directions = new int[,]
+            {
+            { 1, 0 },  // Right
+            { 0, 1 },  // Down
+            { -1, 0 }, // Left
+            { 0, -1 }  // Up
+            };
+
+            int dirIndex = 0;         // Start going Right
+            int segmentLength = 1;    // Start with 1 step per direction
+            int stepsTaken = 0;       // How many steps taken in the current segment
+            int turns = 0;            // Count turns to know when to increase segment length
+
+            bool canMove = true;
+
+            // Clean the starting position first
+            robot.CleanCurrentSpot();
+
+            while (canMove)
+            {
+                // Move in the current direction
+                int newX = robot.X + directions[dirIndex, 0];
+                int newY = robot.Y + directions[dirIndex, 1];
+
+                if (robot.Move(newX, newY))
+                {
+                    robot.CleanCurrentSpot();
+                    stepsTaken++;
+                }
+                else
+                {
+                    // If can't move in this direction, check if all 4 directions are blocked
+                    bool stuck = true;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int testX = robot.X + directions[i, 0];
+                        int testY = robot.Y + directions[i, 1];
+                        if (robot.Map.IsInBounds(testX, testY) && !robot.Map.IsObstacle(testX, testY))
+                        {
+                            stuck = false;
+                            break;
+                        }
+                    }
+
+                    if (stuck)
+                        break; // stop completely if surrounded
+                    else
+                    {
+                        // If blocked only in this direction, turn to next
+                        dirIndex = (dirIndex + 1) % 4;
+                        stepsTaken = 0;
+                        turns++;
+                        if (turns % 2 == 0)
+                            segmentLength++;
+                        continue;
+                    }
+                }
+
+                // Once we’ve taken enough steps in this direction, turn
+                if (stepsTaken >= segmentLength)
+                {
+                    dirIndex = (dirIndex + 1) % 4; // Turn 90° clockwise
+                    stepsTaken = 0;
+                    turns++;
+
+                    // After every two turns, increase the segment length
+                    if (turns % 2 == 0)
+                    {
+                        segmentLength++;
+                    }
+                }
+            }
+        }
+    }
+
     public class Program
     {
 
@@ -168,7 +275,9 @@ namespace RobotCleaner
             Console.WriteLine("Initialize robot");
 
 
-            IStrategy some_strategy = new SomeStrategy();
+            //IStrategy some_strategy = new SomeStrategy();
+            IStrategy perim_hugger = new PerimeterHuggerStrategy();
+            //IStrategy outer_spiral = new SpiralStrategy();
 
             Map map = new Map(20, 10);
             // map.Display( 10,10);
@@ -179,12 +288,14 @@ namespace RobotCleaner
             map.AddObstacle(12, 1);
             map.Display(11, 8);
 
-            Robot robot = new Robot(map, some_strategy);
+            //Robot robot = new Robot(map, some_strategy);
+            Robot robot = new Robot(map, perim_hugger);
+            //Robot robot2 = new Robot(map, outer_spiral);
 
             robot.StartCleaning();
+            //robot2.StartCleaning();
 
             Console.WriteLine("Done.");
         }
     }
 }
-
